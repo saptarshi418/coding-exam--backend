@@ -117,24 +117,16 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TTIME_ZONE = 'Asia/Kolkata'
-USE_TZ = False
+TIME_ZONE = 'UTC'
+USE_TZ = True
 
 
 USE_I18N = True
 
 
-# REST_FRAMEWORK = {
-#     'DATETIME_FORMAT': "%Y-%m-%dT%H:%M:%SZ",  # ISO 8601 with UTC
-# }
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
 
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
