@@ -42,8 +42,8 @@ from .views import (
     ContestCreateView, UpdateContestView, DeleteContestView,
     QuestionDetailView, QuestionUpdateView, QuestionDeleteView, RetrieveContestView, 
     list_contests, join_contest, check_contest_access,
-    get_contest_questions, run_code, submit_code, report_violation,
-    test_code, contest_participants_dashboard, list_organization_contests,
+    get_contest_questions, run_code, report_violation,
+    test_code, contest_participants_dashboard, list_organization_contests, submit_all_codes
 )
 
 urlpatterns = [
@@ -71,7 +71,7 @@ urlpatterns = [
 
     # ✅ Run, submit, test code — use clear REST style
     path('<int:contest_id>/run/', run_code, name='run-code'),
-    path('<int:contest_id>/submit/', submit_code, name='submit-code'),
+    path('<int:contest_id>/submit-all/', submit_all_codes),
     path('<int:contest_id>/report-violation/', report_violation, name='report-violation'),
 
     # ✅ Generic code testing endpoint
