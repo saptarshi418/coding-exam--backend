@@ -538,20 +538,51 @@ def run_code(request, contest_id):
 
 # --- Submit Code for Grading ---
 
+# from rest_framework.decorators import api_view, permission_classes
+# from rest_framework.permissions import IsAuthenticated
+# from rest_framework.response import Response
+# from rest_framework import status
+# from django.shortcuts import get_object_or_404
+
+# from .models import Question, Participation, Submission
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def submit_code(request, contest_id):
+    # ✅ Extract request data safely
     question_id = request.data.get('question_id')
     language = request.data.get('language')
     code = request.data.get('code')
 
+    if not all([question_id, language, code]):
+        return Response(
+            {'error': 'Missing question_id, language, or code.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # ✅ Fetch objects or 404
     question = get_object_or_404(Question, id=question_id, contest_id=contest_id)
     participation = get_object_or_404(Participation, user=request.user, contest_id=contest_id)
 
-    output = run_code_safely(code, language, question.test_input)
-    passed = output.strip() == question.expected_output.strip()
-    marks = question.marks if passed and hasattr(question, 'marks') else 0
+    try:
+        # ✅ Safe fallback if test_input is None
+        test_input = question.test_input or ""
+        output = run_code_safely(code, language, test_input)
+    except Exception as e:
+        print(f"Error executing code: {e}")
+        return Response(
+            {'error': 'Error running code. Please check your code syntax or language.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
+    # ✅ Safe comparison
+    expected_output = question.expected_output or ""
+    passed = output.strip() == expected_output.strip()
+
+    # ✅ Safe marks fallback
+    marks = getattr(question, 'marks', 0) if passed else 0
+
+    # ✅ Create submission
     Submission.objects.create(
         participant=participation,
         language=language,
@@ -560,8 +591,9 @@ def submit_code(request, contest_id):
         marks_awarded=marks,
     )
 
+    # ✅ Return result
     return Response({
-        'message': 'Submission saved.',
+        'message': 'Submission saved successfully.',
         'passed_all_tests': passed,
         'marks_awarded': marks
     }, status=status.HTTP_201_CREATED)
