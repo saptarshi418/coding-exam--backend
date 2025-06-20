@@ -548,45 +548,81 @@ from .models import Question, Participation, Submission
 from .utils import run_code_safely  # Or wherever your helper is
 
 
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+
+from .models import Question, Participation, Submission
+
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+
+from .models import Question, Participation, Submission, TestCase
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def submit_all_codes(request, contest_id):
+    """
+    Accepts submissions with passed_test_cases from frontend.
+    Calculates score = passed_test_cases * 10.
+    Saves to Submission table.
+    """
     submissions = request.data.get('submissions', [])
     if not submissions:
-        return Response({'error': 'No submissions provided.'}, status=400)
+        return Response({'error': 'No submissions provided.'}, status=status.HTTP_400_BAD_REQUEST)
+
     participation = get_object_or_404(Participation, user=request.user, contest_id=contest_id)
     results = []
+
     for item in submissions:
         question_id = item.get('question_id')
         language = item.get('language')
         code = item.get('code')
+        passed_test_cases = item.get('passed_test_cases', 0)
+
         if not all([question_id, language, code]):
-            continue
+            continue  # skip incomplete
+
         question = get_object_or_404(Question, id=question_id, contest_id=contest_id)
-        try:
-            test_input = question.test_input or ""
-            output = run_code_safely(code, language, test_input)
-        except Exception as e:
-            output = str(e)
-        expected_output = question.expected_output or ""
-        passed = output.strip() == expected_output.strip()
-        marks = getattr(question, 'marks', 0) if passed else 0
+
+        # ✅ Correct way: query TestCase directly
+        total_cases = TestCase.objects.filter(question=question).count()
+        passed_all_cases = passed_test_cases == total_cases
+
+        score = passed_test_cases * 10
+
+        # Save submission
         Submission.objects.create(
             participant=participation,
-            language=language,
+            question_id=question.id,
             code=code,
-            passed_all_tests=passed,
-            marks_awarded=marks,
+            language=language,
+            submitted_at=timezone.now(),
+            passed_all_cases=passed_all_cases,
+            score=score
         )
+
         results.append({
-            'question_id': question_id,
-            'passed_all_tests': passed,
-            'marks_awarded': marks
+            'question_id': question.id,
+            'passed_test_cases': passed_test_cases,
+            'total_test_cases': total_cases,
+            'passed_all_cases': passed_all_cases,
+            'score': score
         })
+
     return Response({
-        'message': 'All submissions saved successfully.',
+        'message': '✅ All submissions saved successfully.',
         'results': results
-    }, status=201)
+    }, status=status.HTTP_201_CREATED)
 
 
 class RetrieveContestView(RetrieveAPIView):
