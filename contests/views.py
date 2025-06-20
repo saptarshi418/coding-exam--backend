@@ -568,6 +568,8 @@ from django.utils import timezone
 from .models import Question, Participation, Submission, TestCase
 
 
+from django.db.models import Sum
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def submit_all_codes(request, contest_id):
@@ -575,6 +577,7 @@ def submit_all_codes(request, contest_id):
     Accepts submissions with passed_test_cases from frontend.
     Calculates score = passed_test_cases * 10.
     Saves to Submission table.
+    Returns total score for the participant.
     """
     submissions = request.data.get('submissions', [])
     if not submissions:
@@ -590,17 +593,14 @@ def submit_all_codes(request, contest_id):
         passed_test_cases = item.get('passed_test_cases', 0)
 
         if not all([question_id, language, code]):
-            continue  # skip incomplete
+            continue
 
         question = get_object_or_404(Question, id=question_id, contest_id=contest_id)
 
-        # ✅ Correct way: query TestCase directly
         total_cases = TestCase.objects.filter(question=question).count()
         passed_all_cases = passed_test_cases == total_cases
-
         score = passed_test_cases * 10
 
-        # Save submission
         Submission.objects.create(
             participant=participation,
             question_id=question.id,
@@ -619,9 +619,13 @@ def submit_all_codes(request, contest_id):
             'score': score
         })
 
+    # ✅ Calculate total score for this participant
+    total_score = Submission.objects.filter(participant=participation).aggregate(Sum('score'))['score__sum'] or 0
+
     return Response({
         'message': '✅ All submissions saved successfully.',
-        'results': results
+        'results': results,
+        'total_score': total_score
     }, status=status.HTTP_201_CREATED)
 
 
